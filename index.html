@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Abscisa - Red Vial</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shpjs/4.0.4/shp.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2c3e50, #34495e);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .author {
+            position: absolute;
+            top: 5px;
+            right: 15px;
+            font-size: 10px;
+            opacity: 0.7;
+            color: #ecf0f1;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            height: calc(100vh - 100px);
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .map-container {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .input-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .coordinate-inputs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .coordinate-inputs input {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border-color 0.3s ease;
+            min-width: 0;
+        }
+
+        .coordinate-inputs input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .calculate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .calculate-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .road-selector {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .road-type-btn {
+            flex: 1;
+            padding: 8px 5px;
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            transition: all 0.3s ease;
+            color: #2c3e50;
+        }
+
+        .road-type-btn.active {
+            background: #3498db;
+            border-color: #2980b9;
+            color: white;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .results {
+            flex: 1;
+            padding: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-compact {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 4px solid #27ae60;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 4px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .result-value {
+            font-size: 12px;
+            color: #2c3e50;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .result-value.highlight {
+            color: #27ae60;
+            font-size: 14px;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 1000;
+        }
+
+        .map-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .map-btn:hover:not(:disabled) {
+            background: #3498db;
+            color: white;
+        }
+
+        .map-btn:disabled {
+            background: rgba(189, 195, 199, 0.5);
+            cursor: not-allowed;
+            color: #7f8c8d;
+        }
+
+        .coordinate-display {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: monospace;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border: 1px solid #ddd;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        .legend-point {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            border-radius: 10px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: calc(100vh - 120px);
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 200px;
+                flex-shrink: 0;
+            }
+            
+            .header h1 {
+                font-size: 1.5em;
+            }
+            
+            .coordinate-inputs {
+                flex-direction: column;
+            }
+            
+            .road-selector {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📍 Calculadora de Abscisa</h1>
+        <p>Red Vial Colombia - Posición kilométrica en tiempo real</p>
+        <div class="author">© 2025 - Desarrollado por tu nombre</div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="input-section">
+                <div class="input-group">
+                    <h3>🛣️ Tipo de Red Vial</h3>
+                    <div class="road-selector">
+                        <button class="road-type-btn active" data-type="primaria">Primaria</button>
+                        <button class="road-type-btn" data-type="secundaria">Secundaria</button>
+                        <button class="road-type-btn" data-type="terciaria">Terciaria</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <h3>🎯 Coordenadas</h3>
+                    <div class="coordinate-inputs">
+                        <input type="text" id="longitude" placeholder="Longitud (ej: -75.5636 o 75 39 52 W)" step="any">
+                        <input type="text" id="latitude" placeholder="Latitud (ej: 6.2442 o 6 11 23 N)" step="any">
+                    </div>
+                    <button id="calculateBtn" class="calculate-btn" disabled>
+                        Calcular Abscisa
+                    </button>
+                </div>
+
+                <div id="status"></div>
+            </div>
+
+            <div id="results" class="results">
+                <div id="resultContent"></div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="loadingOverlay" class="loading-overlay">
+                <div class="loading-spinner"></div>
+            </div>
+            <div id="map"></div>
+            <div class="coordinate-display" id="coordinateDisplay">
+                Lat: ---, Lon: ---
+            </div>
+            <div class="map-controls">
+                <button id="showAllRoads" class="map-btn" disabled>Ver Todas</button>
+                <button id="centerOnResult" class="map-btn" disabled>Centrar</button>
+                <button id="clearMap" class="map-btn" disabled>Limpiar</button>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c; box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);"></div>
+                    <span>Vía más cercana</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9b59b6;"></div>
+                    <span>Otras vías</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-point" style="background: #3498db;"></div>
+                    <span>Punto ingresado</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-point" style="background: #27ae60;"></div>
+                    <span>Punto sobre vía</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-point" style="background: #f39c12;"></div>
+                    <span>Inicio de vía</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let geojsonData = null;
+        let map = null;
+        let roadsLayer = null;
+        let markersLayer = null;
+        let currentResult = null;
+        let currentRoadType = 'primaria';
+        let loadedRoads = {};
+        let coordinateDisplay = null;
+
+        // Referencias a elementos DOM
+        const longitudeInput = document.getElementById('longitude');
+        const latitudeInput = document.getElementById('latitude');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const results = document.getElementById('results');
+        const resultContent = document.getElementById('resultContent');
+        const statusDiv = document.getElementById('status');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const roadTypeButtons = document.querySelectorAll('.road-type-btn');
+
+        // Inicializar aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            loadRoadData('primaria'); // Cargar red primaria por defecto
+            setupEventListeners();
+        });
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Botones de tipo de red vial
+            roadTypeButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    roadTypeButtons.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentRoadType = this.dataset.type;
+                    loadRoadData(currentRoadType);
+                    
+                    // Auto-calcular si hay coordenadas válidas
+                    if (hasValidCoordinates()) {
+                        setTimeout(() => {
+                            if (geojsonData) {
+                                calculateAbscissa();
+                            }
+                        }, 500); // Esperar a que se carguen los datos
+                    }
+                });
+            });
+
+            // Controles de entrada
+            longitudeInput.addEventListener('input', function() {
+                updateCalculateButton();
+                autoCalculateIfReady();
+            });
+            latitudeInput.addEventListener('input', function() {
+                updateCalculateButton();
+                autoCalculateIfReady();
+            });
+            calculateBtn.addEventListener('click', calculateAbscissa);
+
+            // Controles del mapa
+            document.getElementById('showAllRoads').addEventListener('click', showAllRoads);
+            document.getElementById('centerOnResult').addEventListener('click', centerOnResult);
+            document.getElementById('clearMap').addEventListener('click', clearMap);
+        }
+
+        // Función para auto-calcular cuando hay coordenadas válidas
+        function autoCalculateIfReady() {
+            if (hasValidCoordinates() && geojsonData) {
+                setTimeout(calculateAbscissa, 300); // Pequeño delay para evitar cálculos múltiples
+            }
+        }
+
+        // Verificar si hay coordenadas válidas
+        function hasValidCoordinates() {
+            const coords = parseCoordinates();
+            return coords.longitude !== null && coords.latitude !== null;
+        }
+
+        // Inicializar mapa
+        function initializeMap() {
+            if (map) return;
+            
+            map = L.map('map').setView([6.2442, -75.5636], 10); // Medellín
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+            
+            roadsLayer = L.layerGroup().addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+
+            // Obtener referencia al display de coordenadas
+            coordinateDisplay = document.getElementById('coordinateDisplay');
+
+            // Mostrar coordenadas del mouse
+            map.on('mousemove', function(e) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+                coordinateDisplay.textContent = `Lat: ${lat}, Lon: ${lng}`;
+            });
+
+            // Ocultar coordenadas cuando el mouse sale del mapa
+            map.on('mouseout', function(e) {
+                coordinateDisplay.textContent = 'Lat: ---, Lon: ---';
+            });
+
+            // Permitir clic en el mapa para obtener coordenadas
+            map.on('click', function(e) {
+                longitudeInput.value = e.latlng.lng.toFixed(6);
+                latitudeInput.value = e.latlng.lat.toFixed(6);
+                updateCalculateButton();
+                autoCalculateIfReady();
+            });
+
+            // Ocultar loading overlay una vez que el mapa esté listo
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 1000);
+        }
+
+        // Cargar datos de red vial
+        async function loadRoadData(roadType) {
+            if (loadedRoads[roadType]) {
+                geojsonData = loadedRoads[roadType];
+                showStatus(`Red ${roadType} cargada (${getLineFeatures().length} vías)`, 'success');
+                updateMapControls();
+                return;
+            }
+
+            try {
+                showStatus(`Cargando red ${roadType}...`, 'loading');
+                
+                const zipUrl = `Red_Vial_${roadType.charAt(0).toUpperCase() + roadType.slice(1)}.zip`;
+                
+                const response = await fetch(zipUrl);
+                if (!response.ok) {
+                    throw new Error(`No se pudo cargar ${zipUrl}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const geojson = await shp(arrayBuffer);
+                
+                if (geojson && geojson.features && geojson.features.length > 0) {
+                    // Verificar y convertir coordenadas si es necesario
+                    await processCoordinates(geojson);
+                    
+                    loadedRoads[roadType] = geojson;
+                    geojsonData = geojson;
+                    
+                    const lineFeatures = getLineFeatures();
+                    showStatus(`Red ${roadType} cargada (${lineFeatures.length} vías)`, 'success');
+                    updateMapControls();
+                } else {
+                    throw new Error('Datos inválidos en el shapefile');
+                }
+                
+            } catch (error) {
+                console.error('Error cargando red vial:', error);
+                showStatus(`Error cargando red ${roadType}: ${error.message}`, 'error');
+                geojsonData = null;
+                updateCalculateButton();
+            }
+        }
+
+        // Procesar y convertir coordenadas si es necesario
+        async function processCoordinates(geojson) {
+            const firstFeature = geojson.features.find(f => 
+                f.geometry && f.geometry.coordinates && f.geometry.coordinates.length > 0
+            );
+            
+            if (firstFeature) {
+                let testCoord;
+                if (firstFeature.geometry.type === 'LineString') {
+                    testCoord = firstFeature.geometry.coordinates[0];
+                } else if (firstFeature.geometry.type === 'MultiLineString') {
+                    testCoord = firstFeature.geometry.coordinates[0][0];
+                }
+                
+                if (testCoord && (Math.abs(testCoord[0]) > 180 || Math.abs(testCoord[1]) > 180)) {
+                    geojson.features.forEach(feature => {
+                        if (feature.geometry) {
+                            convertCoordinates(feature.geometry);
+                        }
+                    });
+                }
+            }
+        }
+
+        // Convertir coordenadas proyectadas a geográficas
+        function convertCoordinates(geometry) {
+            if (geometry.type === 'LineString') {
+                geometry.coordinates = geometry.coordinates.map(convertSingleCoordinate);
+            } else if (geometry.type === 'MultiLineString') {
+                geometry.coordinates = geometry.coordinates.map(line => 
+                    line.map(convertSingleCoordinate)
+                );
+            }
+        }
+
+        function convertSingleCoordinate(coord) {
+            const falseEasting = 1000000;
+            const falseNorthing = 1000000;
+            const centralMeridian = -74.077499;
+            const latitudeOfOrigin = 4.596200;
+            
+            const x = coord[0] - falseEasting;
+            const y = coord[1] - falseNorthing;
+            
+            const lon = centralMeridian + (x / 111320);
+            const lat = latitudeOfOrigin + (y / 110540);
+            
+            return [lon, lat];
+        }
+
+        // Obtener características de línea del dataset actual
+        function getLineFeatures() {
+            if (!geojsonData || !geojsonData.features) return [];
+            return geojsonData.features.filter(feature => {
+                const geomType = feature.geometry?.type;
+                return geomType === 'LineString' || geomType === 'MultiLineString';
+            });
+        }
+
+        // Mostrar estado
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        // Actualizar botón de cálculo
+        function updateCalculateButton() {
+            const hasData = geojsonData !== null;
+            const hasCoordinates = hasValidCoordinates();
+            calculateBtn.disabled = !(hasData && hasCoordinates);
+        }
+
+        // Función para parsear coordenadas en diferentes formatos
+        function parseCoordinates() {
+            const lonValue = longitudeInput.value.trim();
+            const latValue = latitudeInput.value.trim();
+            
+            let longitude = null;
+            let latitude = null;
+
+            // Parsear longitud
+            if (lonValue) {
+                longitude = parseCoordinate(lonValue, 'longitude');
+            }
+
+            // Parsear latitud
+            if (latValue) {
+                latitude = parseCoordinate(latValue, 'latitude');
+            }
+
+            return { longitude, latitude };
+        }
+
+        // Función para parsear una coordenada individual
+        function parseCoordinate(value, type) {
+            // Remover espacios extra
+            value = value.trim();
+            
+            // Si es un número decimal simple
+            if (!isNaN(parseFloat(value)) && isFinite(value)) {
+                return parseFloat(value);
+            }
+
+            // Detectar formato DMS con símbolos (grados, minutos, segundos)
+            const dmsPattern = /(\d+)[°º]?\s*(\d+)[''′]?\s*(\d+(?:\.\d+)?)[""″]?\s*([NSEW])?/i;
+            let match = value.match(dmsPattern);
+            
+            // Detectar formato DMS solo con espacios (ej: "6 11 23 N")
+            if (!match) {
+                const spacePattern = /(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s*([NSEW])?/i;
+                match = value.match(spacePattern);
+            }
+            
+            if (match) {
+                const degrees = parseInt(match[1]);
+                const minutes = parseInt(match[2]);
+                const seconds = parseFloat(match[3]);
+                const direction = match[4] ? match[4].toUpperCase() : '';
+
+                // Convertir a decimal
+                let decimal = degrees + minutes/60 + seconds/3600;
+
+                // Aplicar signo según dirección o tipo de coordenada
+                if (direction) {
+                    if (direction === 'S' || direction === 'W') {
+                        decimal = -decimal;
+                    }
+                } else {
+                    // Si no hay dirección, asumir según el tipo y valor
+                    if (type === 'longitude' && decimal > 0) {
+                        // Para Colombia, longitudes positivas deben ser negativas
+                        decimal = -decimal;
+                    }
+                }
+
+                return decimal;
+            }
+
+            // Detectar formato con dirección al final
+            const dirPattern = /(\d+(?:\.\d+)?)\s*([NSEW])/i;
+            const dirMatch = value.match(dirPattern);
+            
+            if (dirMatch) {
+                let decimal = parseFloat(dirMatch[1]);
+                const direction = dirMatch[2].toUpperCase();
+                
+                if (direction === 'S' || direction === 'W') {
+                    decimal = -decimal;
+                }
+                
+                return decimal;
+            }
+
+            return null;
+        }
+
+        // Actualizar controles del mapa
+        function updateMapControls() {
+            document.getElementById('showAllRoads').disabled = !geojsonData;
+            updateCalculateButton();
+        }
+
+        // Calcular abscisa
+        function calculateAbscissa() {
+            const coords = parseCoordinates();
+            const longitude = coords.longitude;
+            const latitude = coords.latitude;
+
+            if (longitude === null || latitude === null) {
+                showStatus('Coordenadas inválidas', 'error');
+                return;
+            }
+
+            try {
+                const lineFeatures = getLineFeatures();
+                
+                if (lineFeatures.length === 0) {
+                    showStatus('No hay vías disponibles', 'error');
+                    return;
+                }
+
+                const result = findClosestRoadAndAbscissa([longitude, latitude], lineFeatures);
+
+                if (result) {
+                    currentResult = result;
+                    displayResults(result, [longitude, latitude]);
+                    
+                    addRoadsToMap(lineFeatures, result);
+                    addMarkersToMap([longitude, latitude], result.closestPoint, result);
+                    
+                    // Centrar mapa
+                    const bounds = L.latLngBounds([
+                        [latitude, longitude],
+                        [result.closestPoint[1], result.closestPoint[0]]
+                    ]);
+                    map.fitBounds(bounds, { padding: [30, 30] });
+                    
+                    // Habilitar controles
+                    document.getElementById('centerOnResult').disabled = false;
+                    document.getElementById('clearMap').disabled = false;
+                    
+                    showStatus('Cálculo completado', 'success');
+                } else {
+                    showStatus('No se encontró vía cercana', 'error');
+                }
+            } catch (error) {
+                console.error('Error en cálculo:', error);
+                showStatus('Error en el cálculo', 'error');
+            }
+        }
+
+        // Mostrar resultados compactos
+        function displayResults(result, originalPoint) {
+            const properties = result.feature.properties || {};
+            const roadName = properties.NOMBRE_VIA || properties.nombre_via || 'Sin nombre';
+            const roadCode = properties.CODIGO_VIA || properties.codigo_via || 'Sin código';
+
+            const abscissaKm = (result.abscissa / 1000).toFixed(3);
+            const totalLengthKm = (result.totalRoadLength / 1000).toFixed(3);
+            const distanceM = result.distanceToRoad.toFixed(1);
+            const progress = ((result.abscissa / result.totalRoadLength) * 100).toFixed(1);
+
+            resultContent.innerHTML = `
+                <div class="result-compact">
+                    <div class="result-row">
+                        <span class="result-label">Vía</span>
+                        <span class="result-value">${roadName}</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Código</span>
+                        <span class="result-value">${roadCode}</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Abscisa K+</span>
+                        <span class="result-value highlight">${abscissaKm} km</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Distancia</span>
+                        <span class="result-value">${distanceM} m</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Progreso</span>
+                        <span class="result-value">${progress}%</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Long. total</span>
+                        <span class="result-value">${totalLengthKm} km</span>
+                    </div>
+                </div>
+            `;
+
+            results.classList.add('show');
+        }
+
+        // Agregar vías al mapa
+        function addRoadsToMap(features, highlightFeature = null) {
+            roadsLayer.clearLayers();
+            
+            features.forEach((feature, index) => {
+                if (feature.geometry.type === 'LineString') {
+                    addLineStringToMap(feature, index, highlightFeature);
+                } else if (feature.geometry.type === 'MultiLineString') {
+                    feature.geometry.coordinates.forEach((lineCoords, lineIndex) => {
+                        const lineFeature = {
+                            ...feature,
+                            geometry: { type: 'LineString', coordinates: lineCoords }
+                        };
+                        addLineStringToMap(lineFeature, `${index}-${lineIndex}`, highlightFeature);
+                    });
+                }
+            });
+        }
+
+        function addLineStringToMap(feature, featureId, highlightFeature) {
+            const coordinates = feature.geometry.coordinates;
+            const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
+            
+            const isHighlighted = highlightFeature && 
+                (feature === highlightFeature || 
+                 (typeof featureId === 'string' && featureId.startsWith(highlightFeature.roadIndex)));
+            
+            // Crear línea principal
+            const line = L.polyline(latLngs, {
+                color: isHighlighted ? '#e74c3c' : '#9b59b6',
+                weight: isHighlighted ? 5 : 3,
+                opacity: isHighlighted ? 1 : 0.7
+            });
+
+            // Si está resaltada, agregar un efecto de sombra/glow
+            if (isHighlighted) {
+                const shadowLine = L.polyline(latLngs, {
+                    color: '#e74c3c',
+                    weight: 8,
+                    opacity: 0.3
+                });
+                roadsLayer.addLayer(shadowLine);
+            }
+            
+            const roadName = feature.properties?.NOMBRE_VIA || feature.properties?.nombre_via || 'Sin nombre';
+            const roadCode = feature.properties?.CODIGO_VIA || feature.properties?.codigo_via || 'Sin código';
+            
+            line.bindPopup(`<strong>${roadName}</strong><br>Código: ${roadCode}`);
+            roadsLayer.addLayer(line);
+        }
+
+        function addMarkersToMap(originalPoint, closestPoint, result) {
+            markersLayer.clearLayers();
+            
+            // Marcador del punto original
+            const originalMarker = L.circleMarker([originalPoint[1], originalPoint[0]], {
+                color: '#3498db',
+                fillColor: '#3498db',
+                fillOpacity: 0.8,
+                radius: 6
+            });
+            originalMarker.bindPopup('📍 Punto ingresado');
+            markersLayer.addLayer(originalMarker);
+            
+            // Marcador del punto sobre la vía
+            const roadMarker = L.circleMarker([closestPoint[1], closestPoint[0]], {
+                color: '#27ae60',
+                fillColor: '#27ae60',
+                fillOpacity: 0.8,
+                radius: 6
+            });
+            roadMarker.bindPopup(`🎯 K+ ${(result.abscissa / 1000).toFixed(3)} km`);
+            markersLayer.addLayer(roadMarker);
+            
+            // Marcador del inicio de la vía más cercana
+            const feature = result.feature;
+            let startPoint = null;
+            
+            if (feature.geometry.type === 'LineString') {
+                startPoint = feature.geometry.coordinates[0];
+            } else if (feature.geometry.type === 'MultiLineString') {
+                // Para MultiLineString, tomar el primer punto de la primera línea
+                startPoint = feature.geometry.coordinates[0][0];
+            }
+            
+            if (startPoint) {
+                const startMarker = L.circleMarker([startPoint[1], startPoint[0]], {
+                    color: '#f39c12',
+                    fillColor: '#f39c12',
+                    fillOpacity: 0.9,
+                    radius: 7,
+                    weight: 2
+                });
+                
+                const roadName = feature.properties?.NOMBRE_VIA || feature.properties?.nombre_via || 'Sin nombre';
+                startMarker.bindPopup(`🚩 Inicio de vía<br><strong>${roadName}</strong><br>K+ 0.000 km`);
+                markersLayer.addLayer(startMarker);
+            }
+            
+            // Línea conectora entre punto original y punto en vía
+            const connector = L.polyline([
+                [originalPoint[1], originalPoint[0]],
+                [closestPoint[1], closestPoint[0]]
+            ], {
+                color: '#f39c12',
+                weight: 2,
+                dashArray: '3, 3'
+            });
+            markersLayer.addLayer(connector);
+        }
+
+        // Funciones de utilidad para cálculos matemáticos
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Radio de la Tierra en metros
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function pointToLineDistance(point, lineStart, lineEnd) {
+            const A = point[0] - lineStart[0];
+            const B = point[1] - lineStart[1];
+            const C = lineEnd[0] - lineStart[0];
+            const D = lineEnd[1] - lineStart[1];
+
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            
+            if (lenSq === 0) return Math.sqrt(A * A + B * B);
+            
+            let param = dot / lenSq;
+            param = Math.max(0, Math.min(1, param));
+            
+            const xx = lineStart[0] + param * C;
+            const yy = lineStart[1] + param * D;
+            
+            const dx = point[0] - xx;
+            const dy = point[1] - yy;
+            
+            return {
+                distance: Math.sqrt(dx * dx + dy * dy),
+                closestPoint: [xx, yy],
+                parameter: param
+            };
+        }
+
+        // Función principal para encontrar la vía más cercana y calcular abscisa
+        function findClosestRoadAndAbscissa(point, features) {
+            let closestRoad = null;
+            let minDistance = Infinity;
+            let bestResult = null;
+
+            features.forEach((feature, roadIndex) => {
+                try {
+                    if (feature.geometry.type === 'LineString') {
+                        processLineString(feature.geometry.coordinates, feature, roadIndex);
+                    } else if (feature.geometry.type === 'MultiLineString') {
+                        feature.geometry.coordinates.forEach((lineCoords, lineIndex) => {
+                            const lineFeature = {
+                                ...feature,
+                                geometry: { type: 'LineString', coordinates: lineCoords }
+                            };
+                            processLineString(lineCoords, lineFeature, `${roadIndex}-${lineIndex}`);
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error procesando feature ${roadIndex}:`, error);
+                }
+            });
+
+            function processLineString(coordinates, feature, roadId) {
+                try {
+                    if (!coordinates || coordinates.length < 2) return;
+
+                    let roadDistance = 0;
+                    let segmentDistances = [0];
+
+                    // Calcular distancias acumuladas de cada segmento
+                    for (let i = 1; i < coordinates.length; i++) {
+                        const coord1 = coordinates[i-1];
+                        const coord2 = coordinates[i];
+                        
+                        if (!coord1 || !coord2 || coord1.length < 2 || coord2.length < 2) continue;
+
+                        const segmentDist = haversineDistance(
+                            coord1[1], coord1[0],
+                            coord2[1], coord2[0]
+                        );
+                        roadDistance += segmentDist;
+                        segmentDistances.push(roadDistance);
+                    }
+
+                    // Encontrar el segmento más cercano al punto
+                    for (let i = 0; i < coordinates.length - 1; i++) {
+                        const coord1 = coordinates[i];
+                        const coord2 = coordinates[i + 1];
+                        
+                        if (!coord1 || !coord2 || coord1.length < 2 || coord2.length < 2) continue;
+
+                        const result = pointToLineDistance([point[0], point[1]], coord1, coord2);
+                        const distanceToPoint = haversineDistance(
+                            point[1], point[0],
+                            result.closestPoint[1], result.closestPoint[0]
+                        );
+
+                        if (distanceToPoint < minDistance) {
+                            minDistance = distanceToPoint;
+                            
+                            const segmentLength = haversineDistance(
+                                coord1[1], coord1[0],
+                                coord2[1], coord2[0]
+                            );
+                            const abscissa = segmentDistances[i] + (result.parameter * segmentLength);
+
+                            bestResult = {
+                                roadIndex: roadId,
+                                feature: feature,
+                                abscissa: abscissa,
+                                totalRoadLength: roadDistance,
+                                distanceToRoad: distanceToPoint,
+                                closestPoint: result.closestPoint,
+                                segmentIndex: i
+                            };
+                            closestRoad = feature;
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error en processLineString para road ${roadId}:`, error);
+                }
+            }
+
+            return bestResult;
+        }
+
+        // Controles del mapa
+        function showAllRoads() {
+            const lineFeatures = getLineFeatures();
+            if (lineFeatures.length > 0) {
+                addRoadsToMap(lineFeatures);
+                
+                if (roadsLayer.getLayers().length > 0) {
+                    const group = new L.featureGroup(roadsLayer.getLayers());
+                    map.fitBounds(group.getBounds(), { padding: [20, 20] });
+                }
+                
+                document.getElementById('clearMap').disabled = false;
+            }
+        }
+
+        function centerOnResult() {
+            if (currentResult && map) {
+                const coords = parseCoordinates();
+                const bounds = L.latLngBounds([
+                    [coords.latitude, coords.longitude],
+                    [currentResult.closestPoint[1], currentResult.closestPoint[0]]
+                ]);
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
+
+        function clearMap() {
+            roadsLayer.clearLayers();
+            markersLayer.clearLayers();
+            document.getElementById('centerOnResult').disabled = true;
+            document.getElementById('clearMap').disabled = true;
+        }
+    </script>
+</body>
+</html>
